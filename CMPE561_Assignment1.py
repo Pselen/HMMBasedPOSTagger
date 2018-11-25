@@ -46,10 +46,9 @@ for line in dataset:
         sentences.append(sentence)
         sentence = [('<s>','<s>')]
 #%%
+# viterbi 
 def viterbi(input_sentence, transition_probabilities, observation_likelihoods, number_of_pos, word_dictionary, pos_dictionary):
-    # viterbi
-#    input_sentence = [i[0] for i in sentences_test[1][1:-1]] # example observation input
-    
+    # viterbi    
     input_length = len(input_sentence) + 2
     number_of_states  = number_of_pos
     
@@ -126,11 +125,14 @@ def viterbi(input_sentence, transition_probabilities, observation_likelihoods, n
     output = [pos_dictionary_rev[i] for i in reversed(state_order)]
     return output        
 #%%
-accuracy_of_tagging_words = 0.0
-accuracy_of_tagging_sentences = 0.0
-a, b = [], []
+accuracies = []
+
 kf = KFold(n_splits=10,random_state=1, shuffle=False)
 for index_train, index_test in kf.split(sentences):
+    
+    sentences_train = [sentences[i] for i in index_train]
+    sentences_test = [sentences[i] for i in index_test]
+    
     word_dictionary = {}
     pos_dictionary = {}
     
@@ -139,11 +141,8 @@ for index_train, index_test in kf.split(sentences):
     
     observation_likelihoods = np.empty((0))
     transition_probabilities = np.empty((0))
+    
     # extract all unique word&pos
-    
-    sentences_train = [sentences[i] for i in index_train]
-    sentences_test = [sentences[i] for i in index_test]
-    
     for sentence in sentences_train:
         for word,pos in sentence:
             if word != '<s>' and word != '</s>':
@@ -151,7 +150,6 @@ for index_train, index_test in kf.split(sentences):
                 pos_dictionary[pos] = 0
     
     # last two index
-    # TODO maybe we should ignore </s> column (it may worsen the prediction though)
     pos_dictionary['<s>'] = 0
     pos_dictionary['</s>'] = 0       
     
@@ -183,10 +181,7 @@ for index_train, index_test in kf.split(sentences):
     # TODO: OTHER SMOOTHS
     transition_counts = transition_counts + 1 
     transition_counts[:,14] = 0
-    transition_counts[15,:] = 0
-    # TODO i am not sure, it should be applied to here
-    # observation_counts = observation_counts + 1
-    
+    transition_counts[15,:] = 0    
     
     # calculate probabilities
     # implementation detail(create seperate dictinary for each dimension,
@@ -199,6 +194,7 @@ for index_train, index_test in kf.split(sentences):
     incorrectly_tagged_word = 0.0
     correctly_tagged_sentence = 0.0
     incorrectly_tagged_sentence = 0.0
+    
     for sentence in sentences_test:
         input_sentence = [i[0] for i in sentence[1:-1]] 
         target_tags = [i[1] for i in sentence[1:-1]] 
@@ -215,12 +211,16 @@ for index_train, index_test in kf.split(sentences):
                 all_correct = False
         
         if all_correct:
-    
             correctly_tagged_sentence += 1
         else:
             incorrectly_tagged_sentence += 1
-    accuracy_of_tagging_words += correctly_tagged_word / (correctly_tagged_word + incorrectly_tagged_word)
-    accuracy_of_tagging_sentences += correctly_tagged_sentence / (correctly_tagged_sentence + incorrectly_tagged_sentence)
-    a.append((correctly_tagged_word / (correctly_tagged_word + incorrectly_tagged_word),correctly_tagged_sentence / (correctly_tagged_sentence + incorrectly_tagged_sentence)))
-print(accuracy_of_tagging_words/10.0)
-print(accuracy_of_tagging_sentences/10.0)
+        
+    accuracy_words = correctly_tagged_word / (correctly_tagged_word + incorrectly_tagged_word)
+    accuracy_sentences = correctly_tagged_sentence / (correctly_tagged_sentence + incorrectly_tagged_sentence)
+    
+    accuracies.append((accuracy_words,accuracy_sentences))
+    
+    
+print(accuracies)
+print(sum([i[0] for i in accuracies]) / 10.0)
+print(sum([i[1] for i in accuracies]) / 10.0)
